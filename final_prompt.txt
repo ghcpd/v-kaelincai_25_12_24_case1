@@ -1,0 +1,387 @@
+# Complete Project Repair and Validation Task
+
+## Overview
+
+You are tasked with analyzing a problematic Python Flask project, creating a complete fixed version, and then performing full validation to ensure all functionality works correctly. This is a comprehensive task that requires both code repair and thorough testing validation.
+
+---
+
+## Part 1: Project Analysis and Repair
+
+### Task Objective
+
+Analyze the following problematic Python Flask project and create a complete fixed version in a new directory called `fixed_project/`. **Do not modify the original project** - create a brand new directory with all corrected code.
+
+### Original Project Structure
+
+```
+issue_project/
+├── src/
+│   ├── __init__.py
+│   └── app.py              # Flask application main file (contains bug)
+├── tests/
+│   ├── __init__.py
+│   └── test_coupon.py      # Test file (contains failing tests)
+├── data/
+│   └── test_cases.json     # Test case data
+├── requirements.txt        # Project dependencies
+├── README.md               # Project description
+└── KNOWN_ISSUE.md          # Known issues detailed documentation
+```
+
+### Original Project Core Code
+
+#### src/app.py (Buggy Version)
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/api/coupons/calculate', methods=['POST'])
+def calculate():
+    data = request.json
+    
+    # Get parameters directly without any validation
+    original_price = data.get('original_price')
+    discount_rate = data.get('discount_rate')
+    
+    # ⚠️ Bug: Direct division operation without checking if divisor is zero
+    # When discount_rate is 0, it will trigger ZeroDivisionError
+    final_price = original_price / discount_rate
+    
+    saved_amount = original_price - final_price
+    
+    return jsonify({
+        'original_price': original_price,
+        'discount_rate': discount_rate,
+        'final_price': final_price,
+        'saved_amount': saved_amount
+    })
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'})
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+```
+
+#### tests/test_coupon.py (Currently Failing Tests)
+```python
+import pytest
+import json
+from src.app import app
+
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+class TestCouponCalculate:
+    def test_zero_discount_rate_causes_error(self, client):
+        """When discount_rate is 0, should return 400 error, but actually returns 500"""
+        payload = {'original_price': 100, 'discount_rate': 0}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400  # Expects 400, actually gets 500
+        
+    def test_missing_parameters(self, client):
+        """Should return 400 error when required parameters are missing"""
+        payload = {'original_price': 100}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400
+        
+    def test_negative_discount_rate(self, client):
+        """Negative discount rate should be rejected"""
+        payload = {'original_price': 100, 'discount_rate': -0.1}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400
+```
+
+### Known Issues List
+
+#### Issue #1: Division-by-Zero Error (ZeroDivisionError)
+- **Location**: `src/app.py` line 32
+- **Cause**: When `discount_rate` is 0, executing `original_price / discount_rate` causes crash
+- **Current Behavior**: Returns HTTP 500 error
+- **Expected Behavior**: Returns HTTP 400 error with friendly error message
+
+#### Issue #2: Missing Input Parameter Validation
+- **Problem**: Does not validate whether required parameters exist
+- **Impact**: Throws `TypeError` or `AttributeError` when parameters are missing
+- **Expected**: Should check if `original_price` and `discount_rate` exist
+
+#### Issue #3: Missing Parameter Range Validation
+- **Problem**: Does not check if `discount_rate` is within valid range (0-1)
+- **Impact**: Negative values or values greater than 1 lead to unreasonable calculation results
+- **Expected**: Should reject values outside valid range
+
+#### Issue #4: Business Logic Error
+- **Problem**: Uses division `original_price / discount_rate` instead of multiplication
+- **Impact**: Calculation results are completely wrong (e.g., 100 / 0.8 = 125, should be 100 * 0.8 = 80)
+- **Expected**: Should use correct discount calculation formula
+
+#### Issue #5: Missing Error Handling Mechanism
+- **Problem**: No try-except blocks to catch exceptions
+- **Impact**: Any unexpected errors cause 500 errors
+- **Expected**: Should have unified error handling mechanism
+
+### Repair Requirements
+
+#### 1. Create New Project Directory Structure
+
+Create a complete fixed version in the `fixed_project/` directory with the following structure:
+
+```
+fixed_project/
+├── src/
+│   ├── __init__.py
+│   └── app.py                    # Fixed Flask application (Required)
+├── tests/
+│   ├── __init__.py
+│   └── test_coupon.py            # Updated test file (Required)
+├── data/
+│   └── test_cases.json           # Test case data (Optional, can copy original)
+├── requirements.txt              # Project dependencies (Required)
+├── README.md                     # Updated project description (Required)
+├── CHANGELOG.md                  # Fix changelog (Required, record all fixes)
+└── .gitignore                    # Git ignore file (Optional, recommended)
+```
+
+#### 2. Core Fix Points
+
+**src/app.py must include:**
+- ✅ Input parameter existence validation
+- ✅ Division-by-zero check (discount_rate != 0)
+- ✅ Parameter range validation (0 < discount_rate <= 1)
+- ✅ Parameter type validation (must be numeric)
+- ✅ Correct business logic (use multiplication instead of division)
+- ✅ Unified error handling mechanism (try-except)
+- ✅ Return clear JSON error messages
+
+**tests/test_coupon.py must include:**
+- ✅ All original test cases (modified to adapt to fixed code)
+- ✅ Additional boundary test cases
+- ✅ Ensure all tests pass
+
+**CHANGELOG.md must include:**
+- ✅ List of fixed issues
+- ✅ Specific code change descriptions
+- ✅ Before and after behavior comparison
+
+**README.md must include:**
+- ✅ Project overview (this is the fixed version)
+- ✅ Installation and running instructions
+- ✅ API documentation
+- ✅ Test running instructions
+
+---
+
+## Part 2: Full Project Validation
+
+After completing the project repair, you must perform comprehensive validation to ensure the project works correctly.
+
+### Validation Tasks
+
+#### 1. Environment Setup and Project Execution
+- Install all project dependencies from requirements.txt
+- Set up the Python environment correctly
+- Launch the Flask application to verify it starts without errors
+- Confirm the application is accessible and responsive
+
+#### 2. Automated Test Execution
+- Run the complete test suite using pytest
+- Execute all test cases in tests/test_coupon.py
+- Verify that ALL tests pass (0 failures, 0 errors)
+- Capture complete test output including:
+  - Number of tests run
+  - Number of tests passed
+  - Number of tests failed (should be 0)
+  - Execution time
+  - Any warnings or deprecation notices
+
+#### 3. Functional Verification
+- Test the `/health` endpoint to verify basic connectivity
+- Test the `/api/coupons/calculate` endpoint with various scenarios:
+  - Valid discount calculations
+  - Zero discount rate (should return 400 error)
+  - Missing parameters (should return 400 error)
+  - Negative discount rates (should return 400 error)
+  - Discount rates > 1 (should return 400 error)
+  - Non-numeric inputs (should return 400 error)
+
+#### 4. Output Capture and Documentation
+- Capture all terminal outputs during:
+  - Dependency installation
+  - Application startup
+  - Test execution
+  - Manual API testing (if performed)
+- Document any error traces, warnings, or unexpected behavior
+- Save logs for review
+
+#### 5. Validation Report Requirements
+
+Provide a comprehensive validation summary that includes:
+
+**A. Installation Results**
+- Confirmation that all dependencies installed successfully
+- Python version used
+- Any installation warnings or issues
+
+**B. Application Startup Results**
+- Confirmation that the Flask app started without errors
+- Port and host configuration
+- Any startup warnings
+
+**C. Test Execution Results**
+- Complete pytest output showing all tests passed
+- Exact number of tests run and passed
+- Execution time
+- Explicit statement: "ALL TEST CASES PASSED" or details of any failures
+
+**D. Functional Testing Results**
+- Results of manual API endpoint testing
+- Confirmation that error handling works correctly
+- Verification that business logic produces correct calculations
+
+**E. Overall Assessment**
+- Clear statement of whether the project is fully functional
+- Confirmation that all requirements have been met
+- Any observations or recommendations
+
+---
+
+## Acceptance Criteria
+
+The completed task must meet ALL of the following conditions:
+
+### Code Quality Criteria
+1. **All tests pass**: Running `pytest tests/test_coupon.py -v` must show 0 failures
+2. **Correct error handling**: 
+   - `discount_rate = 0` → Returns HTTP 400 with clear error message
+   - Missing parameters → Returns HTTP 400 indicating which parameter is missing
+   - Negative or out-of-range values → Returns HTTP 400 indicating valid range
+3. **Correct business logic**: `original_price = 100, discount_rate = 0.8` → `final_price = 80`
+4. **Code quality**: 
+   - Appropriate comments
+   - Follows Python coding standards (PEP 8)
+   - Functions have docstrings
+5. **Complete documentation**: CHANGELOG.md clearly records all fixes
+
+### Validation Criteria
+1. **Environment setup**: Successfully installed all dependencies without critical errors
+2. **Application launch**: Flask application starts and runs without errors
+3. **Test execution**: ALL automated tests pass (0 failed, 0 errors)
+4. **Functional verification**: All API endpoints behave correctly under all test scenarios
+5. **Documentation**: Complete validation report with all required sections
+6. **Explicit confirmation**: Clear statement that "ALL TEST CASES PASSED" or detailed explanation of any failures
+
+---
+
+## Execution Steps
+
+Follow these steps in order:
+
+### Step 1: Project Repair
+1. Analyze the buggy code in issue_project/
+2. Create the fixed_project/ directory
+3. Implement all fixes in src/app.py
+4. Update tests/test_coupon.py
+5. Create requirements.txt, README.md, CHANGELOG.md
+6. Review all code for quality and completeness
+
+### Step 2: Environment Setup
+1. Navigate to fixed_project/ directory
+2. Install dependencies: `pip install -r requirements.txt`
+3. Verify installation completed successfully
+
+### Step 3: Application Testing
+1. Start the Flask application: `python src/app.py`
+2. Verify application starts without errors
+3. Note the host and port information
+
+### Step 4: Automated Testing
+1. Run pytest: `pytest tests/test_coupon.py -v`
+2. Capture complete output
+3. Verify all tests pass
+4. Document results
+
+### Step 5: Manual Verification (Optional but Recommended)
+1. Test health endpoint: `curl http://localhost:5000/health`
+2. Test valid calculation: 
+   ```
+   curl -X POST http://localhost:5000/api/coupons/calculate \
+     -H "Content-Type: application/json" \
+     -d '{"original_price": 100, "discount_rate": 0.8}'
+   ```
+3. Test error cases (zero discount, missing params, etc.)
+4. Document all results
+
+### Step 6: Validation Report
+1. Compile all captured outputs
+2. Write comprehensive validation summary
+3. Provide explicit pass/fail statement
+4. Include recommendations if applicable
+
+---
+
+## Important Reminders
+
+1. **Do not modify any files in the `issue_project/` directory**
+2. **All fixed code must be created in the new `fixed_project/` directory**
+3. **Ensure CHANGELOG.md records every fix in detail**
+4. **Capture all terminal outputs for the validation report**
+5. **Provide explicit confirmation that all tests passed**
+6. **If any test fails, provide detailed error traces and analysis**
+
+---
+
+## Expected Deliverables
+
+Upon completion, you should provide:
+
+1. **Complete fixed_project/ directory** with all required files:
+   - src/app.py (fixed version)
+   - tests/test_coupon.py (updated tests)
+   - requirements.txt
+   - README.md
+   - CHANGELOG.md
+   - .gitignore (optional)
+
+2. **Validation Report** including:
+   - Installation results
+   - Application startup logs
+   - Complete pytest output
+   - Functional testing results
+   - Explicit statement: "ALL TEST CASES PASSED" or failure details
+
+3. **Brief Summary** explaining:
+   - What issues were fixed
+   - How the fixes were implemented
+   - Confirmation that all validation tests passed
+   - Any notable observations or recommendations
+
+---
+
+## Success Indicators
+
+The task is considered successfully completed when:
+
+- ✅ fixed_project/ directory exists with all required files
+- ✅ All code follows best practices and includes proper documentation
+- ✅ CHANGELOG.md comprehensively documents all fixes
+- ✅ Dependencies install without critical errors
+- ✅ Flask application starts successfully
+- ✅ ALL pytest tests pass (0 failures, 0 errors)
+- ✅ Error handling works correctly for all edge cases
+- ✅ Business logic produces correct calculations
+- ✅ Complete validation report is provided
+- ✅ Explicit confirmation statement included: "ALL TEST CASES PASSED"
+
+This comprehensive task ensures not only that the code is fixed, but also that it is thoroughly validated and proven to work correctly in a real runtime environment.
