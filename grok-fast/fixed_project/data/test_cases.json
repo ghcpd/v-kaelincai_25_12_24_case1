@@ -1,0 +1,14 @@
+[
+    {
+        "original_price": 100,
+        "discount_rate": 0.8,
+        "expected_final_price": 80,
+        "expected_saved_amount": 20
+    },
+    {
+        "original_price": 50,
+        "discount_rate": 0.5,
+        "expected_final_price": 25,
+        "expected_saved_amount": 25
+    }
+]
