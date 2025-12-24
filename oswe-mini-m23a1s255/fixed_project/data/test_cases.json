@@ -1,0 +1,16 @@
+{
+  "test_cases": [
+    {
+      "name": "Normal calculation",
+      "input": { "original_price": 100, "discount_rate": 0.8 },
+      "expected_status": 200,
+      "expected_final": 80.0
+    },
+    {
+      "name": "Division by zero",
+      "input": { "original_price": 100, "discount_rate": 0 },
+      "expected_status": 400,
+      "expected_error": "discount_rate cannot be zero"
+    }
+  ]
+}
