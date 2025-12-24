@@ -1,0 +1,43 @@
+{
+  "test_cases": [
+    {
+      "name": "Normal calculation",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0.8
+      },
+      "expected_status": 200,
+      "note": "This test will pass, but the logic is wrong (should be multiplication not division)"
+    },
+    {
+      "name": "Division by zero trigger",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate cannot be zero",
+      "actual_result": "500 Internal Server Error - ZeroDivisionError",
+      "note": "This is the main bug that causes service crash"
+    },
+    {
+      "name": "Negative discount rate",
+      "input": {
+        "original_price": 100,
+        "discount_rate": -0.2
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate must be positive",
+      "note": "Should reject negative discount rates"
+    },
+    {
+      "name": "Missing parameters",
+      "input": {
+        "original_price": 100
+      },
+      "expected_status": 400,
+      "expected_error": "missing required parameter: discount_rate",
+      "note": "Should validate required parameters"
+    }
+  ]
+}
