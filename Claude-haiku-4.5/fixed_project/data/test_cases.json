@@ -1,0 +1,87 @@
+{
+  "test_cases": [
+    {
+      "name": "Normal calculation",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0.8
+      },
+      "expected_status": 200,
+      "expected_response": {
+        "original_price": 100,
+        "discount_rate": 0.8,
+        "final_price": 80,
+        "saved_amount": 20
+      },
+      "note": "Fixed: Now correctly uses multiplication (100 * 0.8 = 80) instead of division"
+    },
+    {
+      "name": "Division by zero trigger",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate cannot be zero",
+      "note": "Fixed: Now returns 400 with proper error message instead of 500 ZeroDivisionError"
+    },
+    {
+      "name": "Negative discount rate",
+      "input": {
+        "original_price": 100,
+        "discount_rate": -0.2
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate must be between 0 and 1",
+      "note": "Fixed: Now validates discount_rate range"
+    },
+    {
+      "name": "Discount rate greater than 1",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 1.5
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate must be between 0 and 1",
+      "note": "Fixed: Now validates upper bound of discount_rate"
+    },
+    {
+      "name": "Missing discount_rate parameter",
+      "input": {
+        "original_price": 100
+      },
+      "expected_status": 400,
+      "expected_error": "Missing required parameter: discount_rate",
+      "note": "Fixed: Now validates parameter existence"
+    },
+    {
+      "name": "Missing original_price parameter",
+      "input": {
+        "discount_rate": 0.8
+      },
+      "expected_status": 400,
+      "expected_error": "Missing required parameter: original_price",
+      "note": "Fixed: Now validates parameter existence"
+    },
+    {
+      "name": "Invalid type for original_price",
+      "input": {
+        "original_price": "not_a_number",
+        "discount_rate": 0.8
+      },
+      "expected_status": 400,
+      "expected_error": "original_price must be a valid number",
+      "note": "Fixed: Now validates parameter types"
+    },
+    {
+      "name": "Invalid type for discount_rate",
+      "input": {
+        "original_price": 100,
+        "discount_rate": "not_a_number"
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate must be a valid number",
+      "note": "Fixed: Now validates parameter types"
+    }
+  ]
+}
