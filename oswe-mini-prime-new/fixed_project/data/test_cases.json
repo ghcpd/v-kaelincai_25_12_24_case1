@@ -1,0 +1,6 @@
+{
+  "cases": [
+    {"original_price": 100, "discount_rate": 0.8, "final_price": 80},
+    {"original_price": 50, "discount_rate": 1, "final_price": 50}
+  ]
+}
