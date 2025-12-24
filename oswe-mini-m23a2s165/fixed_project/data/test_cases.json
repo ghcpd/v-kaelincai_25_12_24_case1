@@ -1,0 +1,39 @@
+{
+  "test_cases": [
+    {
+      "name": "Normal calculation",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0.8
+      },
+      "expected_status": 200,
+      "note": "final_price should be 80 (100 * 0.8)"
+    },
+    {
+      "name": "Division by zero trigger",
+      "input": {
+        "original_price": 100,
+        "discount_rate": 0
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate cannot be zero"
+    },
+    {
+      "name": "Negative discount rate",
+      "input": {
+        "original_price": 100,
+        "discount_rate": -0.2
+      },
+      "expected_status": 400,
+      "expected_error": "discount_rate must be between 0"
+    },
+    {
+      "name": "Missing parameters",
+      "input": {
+        "original_price": 100
+      },
+      "expected_status": 400,
+      "expected_error": "missing required parameter: discount_rate"
+    }
+  ]
+}
