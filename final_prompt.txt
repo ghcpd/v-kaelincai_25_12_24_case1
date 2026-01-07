@@ -1,0 +1,736 @@
+# Complete Coupon Calculator Project Repair & Validation Task
+
+## Role & Objective
+
+You are a senior full-stack Python developer with expertise in Flask API development, testing, and bug fixing. Your task is to:
+
+1. **Create a complete fixed version** of a buggy coupon calculator Flask application
+2. **Implement all necessary bug fixes** to address validation, error handling, and business logic errors
+3. **Establish comprehensive test coverage** to validate all fixes
+4. **Execute full project validation** including environment setup, service launch, API testing, and test suite execution
+5. **Deliver a production-ready project** with clear documentation and passing tests
+
+---
+
+## Inputs & Context
+
+### Project Location
+- **Workspace Base**: `C:\BugBash\workSpace1\oswe-mini-m23a2s165`
+- **Original Buggy Project**: Located in `issue_project/` directory
+- **Target Output**: Create a new `fixed_project/` directory with all corrected files
+
+### Project Overview
+This is a Flask REST API application for calculating coupon discounts on e-commerce orders. The original project contains **6 critical bugs** that must be identified and fixed:
+
+#### Bug #1: ZeroDivisionError on discount_rate = 0
+- **Location**: `src/app.py` line 32 (calculation endpoint)
+- **Current Behavior**: When `discount_rate` is 0, the code executes `original_price / discount_rate`, causing a ZeroDivisionError that returns HTTP 500
+- **Root Cause**: Direct division without zero-check validation
+- **Expected Behavior**: Should return HTTP 400 with clear error message: `"discount_rate cannot be zero"`
+
+#### Bug #2: Missing Input Parameter Validation
+- **Problem**: No validation that required parameters (`original_price`, `discount_rate`) exist in the request
+- **Current Behavior**: Missing parameters cause `TypeError` or `AttributeError` exceptions (HTTP 500)
+- **Expected Behavior**: Should return HTTP 400 with specific message indicating which parameter is missing
+
+#### Bug #3: Missing Parameter Type Validation
+- **Problem**: Does not validate that parameters are numeric (int or float)
+- **Current Behavior**: String inputs like `"100"` and `"0.8"` may cause unexpected behavior or silently fail
+- **Expected Behavior**: Should return HTTP 400 with message: `"<parameter> must be numeric (int or float)"`
+
+#### Bug #4: Missing Parameter Range Validation
+- **Problem**: Does not validate that `discount_rate` is within valid business range (0 < discount_rate <= 1)
+- **Current Behavior**: Accepts negative values, zero, or values > 1, producing nonsensical results
+- **Expected Behavior**: Should return HTTP 400 with message: `"discount_rate must be between 0 (exclusive) and 1 (inclusive)"`
+
+#### Bug #5: Incorrect Business Logic (Critical)
+- **Problem**: Uses division formula instead of multiplication for discount calculation
+- **Current Code**: `final_price = original_price / discount_rate`
+- **Example Failure**: When `original_price=100` and `discount_rate=0.8`, returns `125` instead of `80`
+- **Expected Logic**: `final_price = original_price * discount_rate`
+- **Correct Example**: When `original_price=100` and `discount_rate=0.8`, should return `80.0`
+
+#### Bug #6: Missing Comprehensive Error Handling
+- **Problem**: No try-except blocks to catch exceptions and return proper error responses
+- **Current Behavior**: Unhandled exceptions return generic HTTP 500 errors
+- **Expected Behavior**: All errors should return HTTP 400 (client errors) with descriptive JSON messages
+
+### Original Buggy Code Reference
+
+**`src/app.py` (buggy version)**:
+```python
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/api/coupons/calculate', methods=['POST'])
+def calculate():
+    data = request.json
+    
+    # Get parameters directly without any validation
+    original_price = data.get('original_price')
+    discount_rate = data.get('discount_rate')
+    
+    # ⚠️ Bug: Direct division operation without checking if divisor is zero
+    final_price = original_price / discount_rate
+    
+    saved_amount = original_price - final_price
+    
+    return jsonify({
+        'original_price': original_price,
+        'discount_rate': discount_rate,
+        'final_price': final_price,
+        'saved_amount': saved_amount
+    })
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'})
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
+```
+
+**`tests/test_coupon.py` (failing tests — expectations shown)**:
+```python
+import pytest
+import json
+from src.app import app
+
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+class TestCouponCalculate:
+    def test_zero_discount_rate_causes_error(self, client):
+        """When discount_rate is 0, should return 400 error"""
+        payload = {'original_price': 100, 'discount_rate': 0}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400
+        
+    def test_missing_parameters(self, client):
+        """Should return 400 error when required parameters are missing"""
+        payload = {'original_price': 100}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400
+        
+    def test_negative_discount_rate(self, client):
+        """Negative discount rate should be rejected"""
+        payload = {'original_price': 100, 'discount_rate': -0.1}
+        response = client.post('/api/coupons/calculate',
+                              data=json.dumps(payload),
+                              content_type='application/json')
+        assert response.status_code == 400
+```
+
+### Validation Test Scenarios
+
+The fixed project must pass the following test scenarios:
+
+| Scenario | Input | Expected Status | Expected Response/Behavior |
+|----------|-------|-----------------|---------------------------|
+| Normal Operation | `original_price=100, discount_rate=0.8` | 200 | `final_price=80.0, saved_amount=20.0` |
+| Zero Discount Rate | `original_price=100, discount_rate=0` | 400 | Error message: "discount_rate cannot be zero" |
+| Missing discount_rate | `original_price=100` (only) | 400 | Error message indicating missing parameter |
+| Missing original_price | `discount_rate=0.8` (only) | 400 | Error message indicating missing parameter |
+| Negative Discount | `original_price=100, discount_rate=-0.1` | 400 | Error message about valid range |
+| Discount > 1 | `original_price=100, discount_rate=1.5` | 400 | Error message about valid range |
+| Non-numeric original_price | `original_price="100", discount_rate=0.8` | 400 | Error message about numeric type |
+| Non-numeric discount_rate | `original_price=100, discount_rate="0.8"` | 400 | Error message about numeric type |
+| Health Check | GET `/health` | 200 | `{"status":"ok"}` |
+
+---
+
+## Step-by-Step Instructions
+
+### Phase 1: Project Structure Setup
+1. **Create the base directory structure** for `fixed_project/` under the workspace:
+   ```
+   fixed_project/
+   ├── src/
+   │   ├── __init__.py
+   │   └── app.py                 (fixed Flask application)
+   ├── tests/
+   │   ├── __init__.py
+   │   └── test_coupon.py         (comprehensive test suite)
+   ├── data/
+   │   └── test_cases.json        (test case reference data)
+   ├── requirements.txt           (Python dependencies)
+   ├── README.md                  (project documentation)
+   ├── CHANGELOG.md               (detailed fix changelog)
+   └── .gitignore                 (git ignore file)
+   ```
+
+2. **Copy test case data** from `issue_project/data/test_cases.json` to `fixed_project/data/test_cases.json`
+
+### Phase 2: Fix Implementation in `src/app.py`
+
+Create a corrected Flask application that:
+
+#### 2.1 Parameter Validation
+- Validate that `request.json` is not None
+- Validate that both `original_price` and `discount_rate` parameters exist
+- Provide specific error messages for missing parameters
+
+#### 2.2 Type Validation
+- Check that `original_price` is numeric (int or float)
+- Check that `discount_rate` is numeric (int or float)
+- Reject string types and return 400 error with specific message
+
+#### 2.3 Range Validation
+- Validate `discount_rate` is in range: `0 < discount_rate <= 1` (exclusive on 0, inclusive on 1)
+- Validate `original_price` is non-negative: `original_price >= 0`
+- Provide clear range violation messages
+
+#### 2.4 Business Logic Correction
+- **Change from division to multiplication**: `final_price = original_price * discount_rate`
+- Calculate saved amount: `saved_amount = original_price - final_price`
+- Ensure correct results (e.g., 100 * 0.8 = 80.0)
+
+#### 2.5 Error Handling
+- Wrap all logic in try-except block
+- Catch all exceptions and return HTTP 400 with JSON error message
+- Never return HTTP 500 for input validation errors
+- Use consistent JSON error response format: `{"error": "<descriptive message>"}`
+
+#### 2.6 Endpoints Required
+- **POST `/api/coupons/calculate`**: Main calculation endpoint with all validation
+- **GET `/health`**: Health check endpoint returning `{"status": "ok"}`
+
+### Phase 3: Test Suite Implementation (`tests/test_coupon.py`)
+
+Create comprehensive tests covering:
+
+#### 3.1 Basic Functionality Tests
+- Test normal operation (valid inputs) → expect 200 with correct calculations
+- Test all validation error scenarios → expect 400 with appropriate error messages
+
+#### 3.2 Edge Case Tests
+- Test zero discount_rate specifically → 400 error
+- Test boundary values (discount_rate near 0 and near 1)
+- Test with different numeric types (int vs float)
+- Test with missing parameters (each parameter individually)
+
+#### 3.3 Error Handling Tests
+- Test negative discount_rate
+- Test discount_rate > 1
+- Test string inputs for numeric parameters
+- Test missing parameters
+- Test null/empty request body
+
+#### 3.4 Test Fixtures
+- Create pytest fixture for Flask test client with `TESTING=True` configuration
+
+**Minimum test count**: 6-7 test cases covering all bug fixes and acceptance criteria
+
+### Phase 4: Documentation
+
+#### 4.1 Update `README.md`
+Include:
+- Project title and description
+- This is the **fixed version** of the coupon calculator
+- Installation instructions
+- How to run the Flask application
+- How to execute the test suite
+- API documentation with endpoint descriptions
+- Example requests/responses
+- Known fixed issues (reference CHANGELOG.md)
+
+#### 4.2 Create `CHANGELOG.md`
+Document:
+- **Version**: Fixed Project v1.0
+- **Fixed Issues** (all 6 bugs listed with:
+  - Bug title and description
+  - Root cause analysis
+  - Code changes made
+  - Before and after comparison
+  - Tests that validate the fix
+- **Test Coverage**: 7/7 tests passing
+- **Validation Status**: All checks passed
+
+#### 4.3 Create `requirements.txt`
+Include:
+- Flask (latest compatible version, e.g., 2.3.0 or 3.0.0)
+- pytest (for testing)
+- Any other necessary dependencies
+
+#### 4.4 Create `.gitignore`
+Standard Python .gitignore including:
+- `__pycache__/`
+- `*.pyc`
+- `.pytest_cache/`
+- `venv/`
+- `.env`
+- `*.egg-info/`
+
+### Phase 5: Environment Setup & Testing
+
+#### 5.1 Python Environment Configuration
+- Create or configure a Python virtual environment in the workspace
+- Ensure Python 3.8+ is available
+
+#### 5.2 Dependency Installation
+- Install all required packages from `requirements.txt`
+- Command: `pip install -r requirements.txt`
+
+#### 5.3 Test Suite Execution
+- Run all tests with: `pytest tests/test_coupon.py -v`
+- Verify all tests pass: **Expected: 7 passed, 0 failed**
+- Capture complete pytest output
+
+### Phase 6: Service Launch & Functional Validation
+
+#### 6.1 Start Flask Application
+- Launch the service: `python src/app.py`
+- Verify it listens on `http://127.0.0.1:5000`
+- Confirm: "Running on http://127.0.0.1:5000" message appears
+
+#### 6.2 Health Check
+- Execute: `GET http://127.0.0.1:5000/health`
+- Verify response: `{"status": "ok"}` with HTTP 200
+
+#### 6.3 API Functional Tests (Programmatic)
+Execute POST requests to `/api/coupons/calculate` with the following test cases:
+
+1. **Normal Case**: 
+   - Payload: `{"original_price": 100, "discount_rate": 0.8}`
+   - Expected: HTTP 200, `final_price=80.0, saved_amount=20.0`
+
+2. **Zero Discount Rate**:
+   - Payload: `{"original_price": 100, "discount_rate": 0}`
+   - Expected: HTTP 400, error message about zero
+
+3. **Missing Parameter**:
+   - Payload: `{"original_price": 100}` (missing discount_rate)
+   - Expected: HTTP 400, error indicating missing parameter
+
+4. **Negative Discount**:
+   - Payload: `{"original_price": 100, "discount_rate": -0.1}`
+   - Expected: HTTP 400, range error message
+
+5. **Non-numeric Input**:
+   - Payload: `{"original_price": "100", "discount_rate": "0.8"}`
+   - Expected: HTTP 400, type error message
+
+6. **Discount > 1**:
+   - Payload: `{"original_price": 100, "discount_rate": 1.5}`
+   - Expected: HTTP 400, range error message
+
+#### 6.4 Capture All Outputs
+- Service startup logs
+- Health check response
+- All API test responses (status codes and JSON bodies)
+- Complete pytest execution output
+- Any error traces or warnings
+
+### Phase 7: Quality Assurance Verification
+
+Verify each acceptance criterion:
+- ✅ discount_rate = 0 → HTTP 400 with "discount_rate cannot be zero"
+- ✅ Missing parameters → HTTP 400 with specific missing parameter name
+- ✅ Out-of-range values → HTTP 400 with clear valid range message
+- ✅ Type validation → HTTP 400 for non-numeric inputs
+- ✅ Business logic → 100 * 0.8 = 80.0 (not 125)
+- ✅ All 7 tests passing
+- ✅ No HTTP 500 errors for input validation issues
+- ✅ Consistent JSON error response format
+
+### Phase 8: Validation Report Generation
+
+Summarize and explicitly state:
+
+#### 8.1 Service Launch Status
+- Was Flask application launched successfully? ✅/❌
+- Is service listening on port 5000? ✅/❌
+- Any errors during startup? (list if yes)
+
+#### 8.2 Test Results Summary
+- Total test count: **7**
+- Tests passed: **[X]**
+- Tests failed: **[X]**
+- Overall result: **PASS ✅ / FAIL ❌**
+
+#### 8.3 API Validation Results
+For each test scenario above, state:
+- Request payload
+- Expected response
+- Actual response
+- Status: **PASS ✅ / FAIL ❌**
+
+#### 8.4 Business Logic Validation
+- Sample calculation (100, 0.8):
+  - Expected: final_price = 80.0
+  - Actual: [report actual result]
+  - Status: **PASS ✅ / FAIL ❌**
+
+#### 8.5 Error Handling Validation
+- Verify no HTTP 500 errors occur for input validation failures
+- Confirm all error responses use JSON format: `{"error": "..."}`
+- Status: **PASS ✅ / FAIL ❌**
+
+#### 8.6 Final Comprehensive Statement
+State explicitly and clearly:
+- "All test cases passed: **YES ✅ / NO ❌**"
+- "Project is production-ready: **YES ✅ / NO ❌**"
+- "All acceptance criteria met: **YES ✅ / NO ❌**"
+
+### Phase 9: Documentation Verification
+
+Confirm that:
+- ✅ README.md is complete and accurate
+- ✅ CHANGELOG.md lists all 6 fixes with details
+- ✅ All code includes appropriate comments
+- ✅ Functions have docstrings
+- ✅ PEP 8 compliance verified
+
+### Phase 10: Final Deliverables
+
+Provide:
+1. ✅ Complete `fixed_project/` directory with all files
+2. ✅ All tests passing (7/7)
+3. ✅ Service launches without errors
+4. ✅ All API test scenarios pass
+5. ✅ Complete validation report with explicit results
+6. ✅ Project ready for production deployment
+
+---
+
+## Output Specification
+
+### File Structure
+Create the complete directory structure as specified in Phase 1 under:
+`C:\BugBash\workSpace1\oswe-mini-m23a2s165\fixed_project\`
+
+### Key Files to Deliver
+
+1. **`fixed_project/src/app.py`**
+   - Fixed Flask application with all validations and error handling
+   - Must include 6 bug fixes
+   - Must handle all error scenarios with HTTP 400 and JSON responses
+
+2. **`fixed_project/tests/test_coupon.py`**
+   - Comprehensive test suite with 6-7 test cases
+   - All tests must pass
+   - Must cover all validation scenarios
+
+3. **`fixed_project/CHANGELOG.md`**
+   - Detailed documentation of all 6 fixes
+   - Include before/after code examples
+   - Document test coverage for each fix
+
+4. **`fixed_project/README.md`**
+   - Complete project documentation
+   - Installation and running instructions
+   - API endpoint documentation
+   - Example requests and responses
+
+5. **`fixed_project/requirements.txt`**
+   - Flask dependency
+   - pytest dependency
+   - Any other required packages
+
+### Validation Output
+Provide a comprehensive validation report including:
+- Service launch confirmation
+- Health check response
+- API test results for all 8 scenarios
+- Pytest execution output (7 tests, all passing)
+- Explicit final statement: "All test cases passed: **YES ✅**"
+
+---
+
+## Constraints & Preferences
+
+### Code Quality Requirements
+- **Style**: Follow PEP 8 Python coding standards
+- **Comments**: Include helpful comments explaining validation logic
+- **Docstrings**: All functions must have docstrings
+- **Type Safety**: Validate all input types explicitly
+- **Error Messages**: Clear, user-friendly error messages in JSON responses
+
+### Technical Constraints
+- **Python Version**: 3.8 or higher
+- **Framework**: Flask (latest compatible version)
+- **Testing Framework**: pytest
+- **Port**: Application must run on port 5000
+- **Response Format**: All responses must be valid JSON
+
+### API Constraints
+- **Error HTTP Status**: All validation errors return HTTP 400 (not 500)
+- **Error Response Format**: `{"error": "<message>"}`
+- **Success HTTP Status**: 200 for successful calculations
+- **Content Type**: All responses are `application/json`
+
+### Testing Requirements
+- **Minimum Test Cases**: 7 tests covering all 6 bugs
+- **Test Framework**: pytest
+- **All Tests Must Pass**: 7/7 passing is requirement for completion
+- **Test Client**: Use Flask test client with `TESTING=True`
+
+### Documentation Constraints
+- **README.md**: Must include complete setup and running instructions
+- **CHANGELOG.md**: Must document all 6 fixes with technical details
+- **Code Comments**: Must explain validation and business logic
+
+---
+
+## Quality Gates
+
+### Gate 1: Code Verification
+Before proceeding to testing, verify:
+- ✅ All files created in `fixed_project/` directory
+- ✅ All 6 bugs identified and addressed in code
+- ✅ No original project files modified (only new files in fixed_project)
+- ✅ Code follows PEP 8 standards
+- ✅ All functions have docstrings
+
+### Gate 2: Test Execution
+Execute tests and verify:
+- ✅ Test file contains 6-7 test cases
+- ✅ pytest runs without import errors
+- ✅ All 7 tests execute
+- ✅ All 7 tests pass (0 failed)
+- ✅ No warnings or deprecations in test output
+
+### Gate 3: Service Launch
+Verify service startup:
+- ✅ Flask app starts without errors
+- ✅ Service listens on `127.0.0.1:5000`
+- ✅ No port conflicts
+- ✅ No startup errors in logs
+
+### Gate 4: Health Check
+Verify basic functionality:
+- ✅ GET `/health` returns HTTP 200
+- ✅ Response is valid JSON: `{"status": "ok"}`
+- ✅ Service is responsive to requests
+
+### Gate 5: API Validation
+Test all 8 scenarios and verify:
+- ✅ Normal case: HTTP 200, correct calculation (100 * 0.8 = 80.0)
+- ✅ Zero discount: HTTP 400, error message present
+- ✅ Missing parameters: HTTP 400, specific parameter name in message
+- ✅ Negative discount: HTTP 400, range error
+- ✅ Non-numeric input: HTTP 400, type error
+- ✅ Discount > 1: HTTP 400, range error
+- ✅ All error responses use JSON format
+- ✅ No HTTP 500 errors for input validation
+
+### Gate 6: Business Logic Verification
+Confirm calculations:
+- ✅ Test case 1: 100 * 0.8 = 80.0, saved = 20.0
+- ✅ Test case 2: 50 * 0.5 = 25.0, saved = 25.0
+- ✅ Test case 3: 200 * 1.0 = 200.0, saved = 0.0 (edge case)
+- ✅ All calculations use multiplication, not division
+
+### Gate 7: Error Handling Verification
+Confirm error responses:
+- ✅ All errors return HTTP 400 (not 500)
+- ✅ All errors include descriptive message
+- ✅ All error responses are valid JSON
+- ✅ Error messages are user-friendly and specific
+- ✅ No stack traces or exception names exposed
+
+### Gate 8: Documentation Verification
+Confirm documentation:
+- ✅ README.md is complete and accurate
+- ✅ CHANGELOG.md documents all 6 fixes
+- ✅ Code comments explain validation logic
+- ✅ API examples in documentation work correctly
+- ✅ Installation instructions are accurate
+
+---
+
+## Final Validation Statements
+
+### Mandatory Completion Confirmations
+
+Before declaring the project complete, explicitly confirm:
+
+1. **Acceptance Criteria - Business Logic**
+   - [ ] CONFIRM: discount_rate = 0 returns HTTP 400 with "discount_rate cannot be zero"
+   - [ ] CONFIRM: Missing parameters return HTTP 400 with specific parameter name
+   - [ ] CONFIRM: Out-of-range values (< 0 or > 1) return HTTP 400
+   - [ ] CONFIRM: Business logic uses multiplication: final_price = original_price * discount_rate
+   - [ ] CONFIRM: Example (100, 0.8) returns final_price = 80.0, not 125.0
+
+2. **Acceptance Criteria - Error Handling**
+   - [ ] CONFIRM: All input validation errors return HTTP 400 (zero HTTP 500 errors)
+   - [ ] CONFIRM: All error responses are JSON format: {"error": "..."}
+   - [ ] CONFIRM: Error messages are descriptive and user-friendly
+   - [ ] CONFIRM: Type validation rejects non-numeric inputs with clear message
+   - [ ] CONFIRM: Range validation rejects invalid discount rates with valid range info
+
+3. **Acceptance Criteria - Testing**
+   - [ ] CONFIRM: All 7 tests pass (7 passed, 0 failed)
+   - [ ] CONFIRM: Test suite covers all 6 bug fixes
+   - [ ] CONFIRM: Tests include edge cases and boundary conditions
+   - [ ] CONFIRM: pytest execution completes without errors
+   - [ ] CONFIRM: Health check endpoint works (GET /health returns 200)
+
+4. **Acceptance Criteria - Project Structure**
+   - [ ] CONFIRM: `fixed_project/` directory created with all required files
+   - [ ] CONFIRM: Directory structure matches specification (src, tests, data, etc.)
+   - [ ] CONFIRM: Original `issue_project/` remains unmodified
+   - [ ] CONFIRM: All files created in correct locations under fixed_project/
+   - [ ] CONFIRM: requirements.txt includes Flask and pytest
+
+5. **Acceptance Criteria - Documentation**
+   - [ ] CONFIRM: README.md is complete with setup and usage instructions
+   - [ ] CONFIRM: CHANGELOG.md documents all 6 fixes with technical details
+   - [ ] CONFIRM: Code includes appropriate comments (not excessive)
+   - [ ] CONFIRM: All functions have docstrings
+   - [ ] CONFIRM: Code follows PEP 8 standards
+
+6. **Acceptance Criteria - Service Validation**
+   - [ ] CONFIRM: Flask application launches successfully
+   - [ ] CONFIRM: Service listens on port 5000 without errors
+   - [ ] CONFIRM: Health endpoint responds with 200 OK
+   - [ ] CONFIRM: All API test scenarios pass
+   - [ ] CONFIRM: Service handles all error cases gracefully (no unhandled exceptions)
+
+7. **Final Comprehensive Statement**
+   - [ ] **ALL TEST CASES PASSED: YES ✅**
+   - [ ] **PROJECT IS PRODUCTION-READY: YES ✅**
+   - [ ] **ALL ACCEPTANCE CRITERIA MET: YES ✅**
+   - [ ] **ALL 6 BUGS FIXED AND VALIDATED: YES ✅**
+
+### Validation Report Format
+
+Provide final report with:
+
+**Service Launch Status**
+```
+Flask Application Launch: [SUCCESS/FAILURE]
+Service Port: 5000
+Service URL: http://127.0.0.1:5000
+Startup Errors: [NONE / description]
+```
+
+**Test Execution Results**
+```
+Framework: pytest
+Test File: tests/test_coupon.py
+Total Tests: 7
+Passed: [X]
+Failed: [X]
+Overall Result: [PASS ✅ / FAIL ❌]
+```
+
+**API Validation Results**
+```
+1. Normal Case (100, 0.8): [PASS ✅ / FAIL ❌]
+2. Zero Discount Rate: [PASS ✅ / FAIL ❌]
+3. Missing Parameter: [PASS ✅ / FAIL ❌]
+4. Negative Discount: [PASS ✅ / FAIL ❌]
+5. Non-numeric Input: [PASS ✅ / FAIL ❌]
+6. Discount > 1: [PASS ✅ / FAIL ❌]
+7. Health Check: [PASS ✅ / FAIL ❌]
+8. Error Handling: [PASS ✅ / FAIL ❌]
+```
+
+**Final Verdict**
+```
+All test cases passed: [YES ✅ / NO ❌]
+Project validation complete: [YES ✅ / NO ❌]
+Project is production-ready: [YES ✅ / NO ❌]
+Recommended for deployment: [YES ✅ / NO ❌]
+```
+
+---
+
+## Final Execution Instructions
+
+### Immediate Actions (Mandatory)
+
+1. **Phase 1-4**: Create all project files and structure
+2. **Phase 5-6**: Set up environment and run tests + service
+3. **Phase 7-8**: Execute validation and collect outputs
+4. **Phase 9-10**: Verify documentation and deliver complete package
+
+### Success Criteria (All Required)
+
+✅ Complete `fixed_project/` directory created
+✅ All 7 tests passing
+✅ Service launches and listens on port 5000
+✅ All 8 API test scenarios pass
+✅ Business logic: 100 * 0.8 = 80.0 (confirmed)
+✅ All error responses use HTTP 400 and JSON format
+✅ CHANGELOG.md documents all 6 fixes
+✅ Final statement: "All test cases passed: YES ✅"
+
+### Completion Certificate
+
+Upon successful completion, the project meets:
+- ✅ All 6 bugs identified, fixed, and validated
+- ✅ 7/7 tests passing
+- ✅ 100% acceptance criteria met
+- ✅ Production-ready code quality
+- ✅ Complete documentation
+
+**Status**: Ready for production deployment
+
+---
+
+## Appendix: Test Data Reference
+
+### Test Case 1: Normal Operation
+```json
+{
+  "original_price": 100,
+  "discount_rate": 0.8,
+  "expected_final_price": 80.0,
+  "expected_saved": 20.0,
+  "expected_status": 200
+}
+```
+
+### Test Case 2: Zero Discount
+```json
+{
+  "original_price": 100,
+  "discount_rate": 0,
+  "expected_status": 400,
+  "expected_error": "discount_rate cannot be zero"
+}
+```
+
+### Test Case 3: Range Validation
+```json
+{
+  "test_cases": [
+    {"discount_rate": -0.1, "expected_status": 400},
+    {"discount_rate": 1.5, "expected_status": 400},
+    {"discount_rate": 0.0001, "expected_status": 200},
+    {"discount_rate": 1.0, "expected_status": 200}
+  ]
+}
+```
+
+### Test Case 4: Type Validation
+```json
+{
+  "test_cases": [
+    {"original_price": "100", "discount_rate": 0.8, "expected_status": 400},
+    {"original_price": 100, "discount_rate": "0.8", "expected_status": 400},
+    {"original_price": 100.50, "discount_rate": 0.8, "expected_status": 200},
+    {"original_price": 100, "discount_rate": 0.8, "expected_status": 200}
+  ]
+}
+```
+
+---
+
+## Notes for Implementation
+
+- The fixed project must be **completely independent** from the original buggy project
+- Do not modify any files in `issue_project/` - only create new files in `fixed_project/`
+- Every fix should be accompanied by a corresponding test case
+- Error messages must be specific and help users understand what went wrong
+- The goal is to deliver a production-ready, well-tested, and well-documented project that handles all edge cases gracefully
